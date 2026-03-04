@@ -1,0 +1,97 @@
+# Требования для сборки Adler32 Checksum Validator
+
+## Компиляторы и инструменты
+
+- g++ с поддержкой C++11
+- make
+- qmake (Qt Build Tool)
+
+## Библиотеки
+
+- Qt 5.x (минимум 5.0)
+  - Qt Core
+  - Qt GUI
+  - Qt Widgets
+  - Qt Network
+  - Qt Concurrent
+
+## Системные библиотеки
+
+- pthread
+- libGL
+
+## Установка зависимостей
+
+### Debian/Ubuntu
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+    build-essential \
+    g++ \
+    qtbase5-dev \
+    qt5-qmake \
+    libgl1-mesa-dev
+```
+
+### Fedora/RHEL
+
+```bash
+sudo dnf install -y \
+    gcc-c++ \
+    make \
+    qt5-qtbase-devel \
+    mesa-libGL-devel
+```
+
+### Arch Linux
+
+```bash
+sudo pacman -S --noconfirm \
+    base-devel \
+    qt5-base \
+    mesa
+```
+
+### openSUSE
+
+```bash
+sudo zypper install -y \
+    gcc-c++ \
+    make \
+    libqt5-qtbase-devel \
+    Mesa-libGL-devel
+```
+
+## Проверка установленных зависимостей
+
+```bash
+g++ --version
+qmake -query QT_VERSION
+```
+
+## Сборка проекта
+
+После установки зависимостей выполните:
+
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+Или вручную:
+
+```bash
+# Сборка сервера
+g++ -std=c++11 -pthread -O2 -o adler_server server.cpp
+
+# Сборка GUI клиента
+qmake adler_gui.pro
+make -f Makefile.gui
+```
+
+## Минимальные требования
+
+- Оперативная память: 512 MB
+- Место на диске: 100 MB
+- ОС: Linux/Unix
