@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <libgen.h>
 #include <cstdlib>
+#include <limits.h>
 
 // Новые модули
 #include "secure_channel.h"
@@ -90,7 +91,23 @@ std::map<std::string, std::chrono::steady_clock::time_point> client_activity;
 Authentication auth;
 
 // Путь к папке с файлами (относительно сервера)
-std::string FILES_DIR = "files";
+std::string FILES_DIR;
+
+// Получить директорию исполняемого файла
+std::string getExecutableDir(int argc, char* argv[]) {
+    char path[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", path, sizeof(path));
+    if (count != -1) {
+        path[count] = '\0';
+        std::string exe_path(path);
+        size_t pos = exe_path.find_last_of('/');
+        if (pos != std::string::npos) {
+            return exe_path.substr(0, pos);
+        }
+    }
+    // Fallback: использовать текущую директорию
+    return ".";
+}
 
 // Функция для логирования
 void log(const std::string& message, const std::string& level = "INFO") {
@@ -532,7 +549,12 @@ int main(int argc, char* argv[]) {
         port = std::stoi(argv[1]);
     }
 
+    // Инициализируем путь к папке с файлами относительно исполняемого файла
+    std::string exe_dir = getExecutableDir(argc, argv);
+    FILES_DIR = exe_dir + "/files";
+
     log("Starting Adler32 Server on port " + std::to_string(port));
+    log("Files directory: " + FILES_DIR);
 
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {

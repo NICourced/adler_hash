@@ -510,13 +510,11 @@ void MainWindow::onBrowseRemoteFile()
     timer.start();
     int timeout = 5000;
 
+    // Сначала читаем заголовок FILES:<size>\n
     while (timer.elapsed() < timeout) {
         if (socket->waitForReadyRead(500)) {
             response += socket->readAll();
             if (response.contains("FILES:")) {
-                // Ждем немного для получения всех данных
-                QThread::msleep(100);
-                response += socket->readAll();
                 break;
             }
         }
@@ -525,40 +523,50 @@ void MainWindow::onBrowseRemoteFile()
         }
     }
 
-    if (!response.isEmpty()) {
+    if (!response.isEmpty() && response.contains("FILES:")) {
         QString respStr(response);
-        
-        // Парсим ответ FILES:<size>\n<file1>\n<file2>\n...
-        if (respStr.startsWith("FILES:")) {
-            int newlinePos = respStr.indexOf('\n');
-            if (newlinePos > 0) {
-                uint size = respStr.mid(6, newlinePos - 6).toUInt();
-                QString fileList = respStr.mid(newlinePos + 1);
-                
-                // Разбиваем на список файлов
-                QStringList files = fileList.split('\n', Qt::SkipEmptyParts);
-                
-                if (files.isEmpty()) {
-                    QMessageBox::information(this, "Файлы на сервере", "Папка files пуста или не существует");
-                    return;
-                }
-                
-                // Показываем диалог выбора файла
-                bool ok = false;
-                QString selectedFile = QInputDialog::getItem(this, "Выберите файл",
-                    "Файлы на сервере:", files, 0, false, &ok);
-                
-                if (ok && !selectedFile.isEmpty()) {
-                    remoteFileEdit->setText(selectedFile);
-                    remoteChecksumResult->setText("—");
-                    compareResultLabel->setText("Результат сравнения: —");
-                    compareButton->setEnabled(false);
-                    log("Выбран файл на сервере: " + selectedFile);
+        int newlinePos = respStr.indexOf('\n');
+        if (newlinePos > 0) {
+            uint expectedSize = respStr.mid(6, newlinePos - 6).toUInt();
+            
+            // Уже прочитанные данные после заголовка
+            QByteArray currentData = response.mid(newlinePos + 1);
+            
+            // Читаем остальные данные, пока не получим expectedSize байт
+            while (currentData.size() < (int)expectedSize && timer.elapsed() < timeout) {
+                if (socket->waitForReadyRead(500)) {
+                    currentData += socket->readAll();
+                } else {
+                    break;
                 }
             }
-        } else if (respStr.startsWith("ERROR:")) {
-            QMessageBox::warning(this, "Ошибка сервера", respStr);
+            
+            log("Получено файлов: " + QString::number(currentData.size()) + " байт (ожидалось: " + QString::number(expectedSize) + ")");
+
+            // Разбиваем на список файлов
+            QString fileList(currentData);
+            QStringList files = fileList.split('\n', Qt::SkipEmptyParts);
+
+            if (files.isEmpty()) {
+                QMessageBox::information(this, "Файлы на сервере", "Папка files пуста или не существует");
+                return;
+            }
+
+            // Показываем диалог выбора файла
+            bool ok = false;
+            QString selectedFile = QInputDialog::getItem(this, "Выберите файл",
+                "Файлы на сервере:", files, 0, false, &ok);
+
+            if (ok && !selectedFile.isEmpty()) {
+                remoteFileEdit->setText(selectedFile);
+                remoteChecksumResult->setText("—");
+                compareResultLabel->setText("Результат сравнения: —");
+                compareButton->setEnabled(false);
+                log("Выбран файл на сервере: " + selectedFile);
+            }
         }
+    } else if (!response.isEmpty() && response.contains("ERROR:")) {
+        QMessageBox::warning(this, "Ошибка сервера", response);
     } else {
         log("Таймаут получения списка файлов");
         QMessageBox::warning(this, "Ошибка", "Не удалось получить список файлов с сервера");
